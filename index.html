@@ -133,7 +133,7 @@
         <p class="muted" id="endDetail"></p>
       </div>
       <p class="muted" id="endNote"></p>
-      <button class="ghost" id="btnDownload">Unduh berkas hasil</button>
+      <button class="ghost hide" id="btnRetry">Kirim ulang hasil</button>
     </div>
   </div>
 </div>
@@ -157,8 +157,8 @@ const CONFIG = {
   durationMinutes: 90,             // lama maksimal pengerjaan; otomatis dipotong saat jendela ujian ditutup
   // Jendela pelaksanaan (WIB, UTC+7). Ujian hanya bisa dimulai di antara dua waktu ini,
   // dan waktu semua peserta berakhir paling lambat pada closeAt.
-  openAt:  "2026-10-08T19:30:00+07:00",
-  closeAt: "2026-10-08T19:45:00+07:00",
+  openAt:  "2026-10-08T19:45:00+07:00",
+  closeAt: "2026-10-08T21:15:00+07:00",
   maxViolations: 3,               // auto-kumpul setelah sekian pelanggaran
   shuffleQuestions: true,
   shuffleOptions: true,
@@ -269,7 +269,7 @@ function save(){
   if (!S.sid) return;
   try { localStorage.setItem(LS_KEY(), JSON.stringify({
     name:S.name, absen:S.absen, kelas:S.kelas, order:S.order, answers:S.answers, cur:S.cur, endAt:S.endAt,
-    violations:S.violations, finished:S.finished, result:S.result })); } catch(e){}
+    violations:S.violations, finished:S.finished, sent:S.sent, result:S.result })); } catch(e){}
 }
 function load(){
   try { const r = localStorage.getItem(LS_KEY()); return r ? JSON.parse(r) : null; } catch(e){ return null; }
@@ -293,7 +293,15 @@ $("btnStart").onclick = async () => {
   S.name = name; S.absen = absen; S.kelas = kelas; S.sid = sid;
 
   const saved = load();
-  if (saved && saved.finished){ $("startErr").textContent = "Kelas dan nomor absen ini sudah mengumpulkan ujian."; return; }
+  if (saved && saved.finished){
+    if (!saved.sent && CONFIG.submitEndpoint && saved.result){
+      Object.assign(S, { result:saved.result, finished:true, sent:false, name:saved.name || name, absen:saved.absen || absen, kelas:saved.kelas || kelas });
+      showEnd(saved.result.finishReason || "Selesai");
+      sendResult(0);
+      return;
+    }
+    $("startErr").textContent = "Kelas dan nomor absen ini sudah mengumpulkan ujian."; return;
+  }
 
   const now = Date.now();
   if (now < OPEN){ $("startErr").textContent = "Ujian belum dibuka. Dibuka " + tglTxt + " pukul " + jam(OPEN) + " WIB."; return; }
@@ -488,18 +496,24 @@ function finish(reason){
   };
   save();
   if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+  showEnd(reason);
+  // Saat waktu habis, ratusan siswa mengirim bersamaan: beri jeda acak agar server tidak kewalahan
+  if (CONFIG.submitEndpoint) sendResult(reason === "Waktu habis" ? Math.random()*15000 : 0);
+}
+
+// Layar akhir: siswa hanya melihat konfirmasi, nilai hanya dilihat guru di Google Sheet
+function showEnd(reason){
+  $("screenStart").classList.add("hide");
   $("screenExam").classList.add("hide");
   $("screenEnd").classList.remove("hide");
   $("endWho").textContent = S.name + " · " + S.kelas + " · No. " + S.absen + " · " + reason;
-  if (CONFIG.showScoreToStudent){
+  if (CONFIG.showScoreToStudent && S.result){
     $("endScore").textContent = S.result.score;
-    $("endDetail").textContent = correct + " benar dari " + total + " soal";
+    $("endDetail").textContent = S.result.correct + " benar dari " + S.result.total + " soal";
   } else {
     $("endScoreBox").classList.add("hide");
   }
-  $("endNote").textContent = CONFIG.submitEndpoint ? "Mengirim hasil ..." : "Unduh berkas hasil dan serahkan kepada pengawas.";
-  // Saat waktu habis, ratusan siswa mengirim bersamaan: beri jeda acak agar server tidak kewalahan
-  if (CONFIG.submitEndpoint) sendResult(reason === "Waktu habis" ? Math.random()*15000 : 0);
+  $("endNote").textContent = CONFIG.submitEndpoint ? "Mengirim hasil ..." : "Ujian selesai. Hasil akan disampaikan oleh guru.";
 }
 
 // Kirim hasil ke server dengan percobaan ulang otomatis
@@ -513,8 +527,9 @@ function sendResult(delay){
       .then(r => r.json())
       .then(j => {
         if (!j || !j.ok) throw new Error("server");
-        S.sending = false;
-        $("endNote").textContent = "Hasil terkirim. Anda boleh menutup halaman ini.";
+        S.sending = false; S.sent = true; save();
+        $("btnRetry").classList.add("hide");
+        $("endNote").textContent = "Hasil terkirim. Hasil akhir akan disampaikan oleh guru. Anda boleh menutup halaman ini.";
       })
       .catch(() => {
         if (attempt < 6){
@@ -522,18 +537,17 @@ function sendResult(delay){
           setTimeout(go, Math.min(30000, 2000*attempt*attempt) + Math.random()*2000);
         } else {
           S.sending = false;
-          $("endNote").textContent = "Pengiriman belum terkonfirmasi. Unduh berkas hasil dan serahkan kepada pengawas.";
+          $("endNote").textContent = "Pengiriman belum terkonfirmasi. Pastikan internet aktif, lalu tekan Kirim ulang hasil. Jika tetap gagal, lapor kepada pengawas.";
+          $("btnRetry").classList.remove("hide");
         }
       });
   };
   setTimeout(go, delay);
 }
-$("btnDownload").onclick = () => {
-  const blob = new Blob([JSON.stringify(S.result, null, 2)], { type:"application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "hasil-" + CONFIG.examId + "-" + S.sid + "-" + S.name.replace(/\s+/g,"_") + ".json";
-  a.click(); URL.revokeObjectURL(a.href);
+$("btnRetry").onclick = () => {
+  $("btnRetry").classList.add("hide");
+  $("endNote").textContent = "Mengirim hasil ...";
+  sendResult(0);
 };
 </script>
 </body>
