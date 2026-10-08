@@ -498,7 +498,7 @@ function finish(reason){
   if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});
   showEnd(reason);
   // Saat waktu habis, ratusan siswa mengirim bersamaan: beri jeda acak agar server tidak kewalahan
-  if (CONFIG.submitEndpoint) sendResult(reason === "Waktu habis" ? Math.random()*15000 : 0);
+  if (CONFIG.submitEndpoint) sendResult(reason === "Waktu habis" ? Math.random()*150000 : 0);
 }
 
 // Layar akhir: siswa hanya melihat konfirmasi, nilai hanya dilihat guru di Google Sheet
