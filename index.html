@@ -48,7 +48,7 @@
   .layout{display:grid;grid-template-columns:1fr 200px;gap:16px;align-items:start}
   @media(max-width:720px){.layout{grid-template-columns:1fr}}
   .qtext{font-family:Georgia,"Times New Roman",serif;font-size:1.2rem;line-height:1.6;margin:10px 0 20px}
-  .opt{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:justify;background:#fff;color:var(--ink);
+  .opt{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;background:#fff;color:var(--ink);
     border:1px solid var(--line);padding:12px 14px;margin:8px 0;font-weight:400;font-family:Georgia,serif;font-size:1.05rem}
   .opt:hover{background:#F3F6FA}
   .opt .k{flex:none;width:26px;height:26px;border:1px solid var(--navy);border-radius:50%;display:grid;place-items:center;
@@ -88,7 +88,7 @@
       <label for="inName">Nama Lengkap</label>
       <input id="inName" type="text" autocomplete="off" placeholder="Contoh: Nicholas Saputra">
       <label for="inAbsen">Nomor Absen</label>
-      <input id="inAbsen" type="text" inputmode="numeric" autocomplete="off" placeholder="Contoh: 05, 16, 27, 36">
+      <input id="inAbsen" type="text" inputmode="numeric" autocomplete="off" placeholder="Contoh: 05, 16, 36">
       <label for="inKelas">Kelas</label>
       <input id="inKelas" type="text" autocomplete="off" placeholder="Contoh: 7A">
       <p id="startErr" class="muted" style="color:var(--red);min-height:1.4em"></p>
@@ -157,8 +157,8 @@ const CONFIG = {
   durationMinutes: 90,             // lama maksimal pengerjaan; otomatis dipotong saat jendela ujian ditutup
   // Jendela pelaksanaan (WIB, UTC+7). Ujian hanya bisa dimulai di antara dua waktu ini,
   // dan waktu semua peserta berakhir paling lambat pada closeAt.
-  openAt:  "2026-10-09T07:30:00+07:00",
-  closeAt: "2026-10-09T09:00:00+07:00",
+  openAt:  "2026-10-13T07:30:00+07:00",
+  closeAt: "2026-10-13T09:00:00+07:00",
   maxViolations: 3,               // auto-kumpul setelah sekian pelanggaran
   shuffleQuestions: true,
   shuffleOptions: true,
@@ -268,7 +268,7 @@ const S = {
 function save(){
   if (!S.sid) return;
   try { localStorage.setItem(LS_KEY(), JSON.stringify({
-    name:S.name, absen:S.absen, kelas:S.kelas, order:S.order, answers:S.answers, cur:S.cur, endAt:S.endAt,
+    name:S.name, retake:S.retake, absen:S.absen, kelas:S.kelas, order:S.order, answers:S.answers, cur:S.cur, endAt:S.endAt,
     violations:S.violations, finished:S.finished, sent:S.sent, result:S.result })); } catch(e){}
 }
 function load(){
@@ -286,13 +286,51 @@ const jam = t => new Date(t).toLocaleTimeString("id-ID", { hour:"2-digit", minut
 $("examMeta").textContent = QUESTIONS.length + " soal · " + tglTxt + ", pukul " + jam(OPEN) + "–" + jam(CLOSE) + " WIB";
 $("maxV").textContent = CONFIG.maxViolations;
 
+// Tanya server: apakah peserta ini sudah tercatat mengumpulkan, dan apakah guru mengizinkan mengulang.
+// Hasil null (gagal/tanpa koneksi) = lanjut memakai pengecekan lokal saja, agar siswa tidak terhalang gangguan server.
+async function cekServer(kelas, absen){
+  if (!CONFIG.submitEndpoint) return null;
+  const ctrl = new AbortController(), t = setTimeout(() => ctrl.abort(), 7000);
+  try {
+    const r = await fetch(CONFIG.submitEndpoint + "?action=cek&kelas=" + encodeURIComponent(kelas) + "&absen=" + encodeURIComponent(absen), { signal: ctrl.signal });
+    const j = await r.json();
+    return (j && j.ok) ? j : null;
+  } catch(e){ return null; }
+  finally { clearTimeout(t); }
+}
+
 $("btnStart").onclick = async () => {
+  $("startErr").textContent = "";
   const name = $("inName").value.trim(), absen = $("inAbsen").value.trim(), kelas = $("inKelas").value.trim();
   if (!name || !absen || !kelas){ $("startErr").textContent = "Isi nama lengkap, nomor absen, dan kelas."; return; }
   const sid = kelas.toUpperCase().replace(/\s+/g,"") + "-" + absen;   // kunci unik peserta
   S.name = name; S.absen = absen; S.kelas = kelas; S.sid = sid;
 
-  const saved = load();
+  if (Date.now() < OPEN){ $("startErr").textContent = "Ujian belum dibuka. Dibuka " + tglTxt + " pukul " + jam(OPEN) + " WIB."; return; }
+
+  // Layar penuh diminta lebih dulu, selagi klik siswa masih berlaku
+  try { await document.documentElement.requestFullscreen(); }
+  catch(e){ $("startErr").textContent = "Peramban tidak mengizinkan layar penuh. Gunakan Chrome, Edge, atau Firefox di komputer."; return; }
+
+  const stop = msg => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+    $("startErr").textContent = msg; $("btnStart").disabled = false;
+  };
+  $("btnStart").disabled = true;
+  $("startErr").textContent = "Memeriksa data peserta ...";
+
+  const cek = await cekServer(kelas, absen);
+  let saved = load();
+  const lanjutUlang = !!(saved && saved.retake && !saved.sent);   // sedang mengerjakan ulang, jangan dihapus
+  if (cek && cek.izin && !lanjutUlang){
+    // Guru mengizinkan mengulang: buang catatan lama di perangkat ini dan mulai dari awal
+    try { localStorage.removeItem(LS_KEY()); } catch(e){}
+    saved = null;
+  } else if (cek && cek.sudah && !cek.izin){
+    return stop("Kelas dan nomor absen ini sudah tercatat mengumpulkan ujian. Jika perlu mengulang, hubungi guru.");
+  }
+  S.retake = lanjutUlang || !!(cek && cek.izin);
+
   if (saved && saved.finished){
     if (!saved.sent && CONFIG.submitEndpoint && saved.result){
       Object.assign(S, { result:saved.result, finished:true, sent:false, name:saved.name || name, absen:saved.absen || absen, kelas:saved.kelas || kelas });
@@ -300,22 +338,16 @@ $("btnStart").onclick = async () => {
       sendResult(0);
       return;
     }
-    $("startErr").textContent = "Kelas dan nomor absen ini sudah mengumpulkan ujian."; return;
+    return stop("Kelas dan nomor absen ini sudah mengumpulkan ujian.");
   }
-
-  const now = Date.now();
-  if (now < OPEN){ $("startErr").textContent = "Ujian belum dibuka. Dibuka " + tglTxt + " pukul " + jam(OPEN) + " WIB."; return; }
-  if (now >= CLOSE && !(saved && !saved.finished)){ $("startErr").textContent = "Waktu ujian sudah berakhir."; return; }
-
-  try { await document.documentElement.requestFullscreen(); }
-  catch(e){ $("startErr").textContent = "Peramban tidak mengizinkan layar penuh. Gunakan Chrome, Edge, atau Firefox di komputer."; return; }
+  if (Date.now() >= CLOSE && !(saved && !saved.finished)) return stop("Waktu ujian sudah berakhir.");
 
   if (saved){                       // lanjutkan sesi (mis. halaman dimuat ulang)
     Object.assign(S, { order:saved.order, answers:saved.answers, cur:saved.cur, endAt:saved.endAt, violations:saved.violations });
     S.name = saved.name || name; S.absen = saved.absen || absen; S.kelas = saved.kelas || kelas;
     S.violations.push({ t:Date.now(), reason:"Halaman dimuat ulang / sesi dilanjutkan" });
   } else {
-    // Pengacakan unik per peserta (seed dari nomor peserta + id ujian), stabil jika dimuat ulang
+    // Pengacakan unik per peserta (seed dari kelas + nomor absen + id ujian), stabil jika dimuat ulang
     const rnd = mulberry32(hashStr(CONFIG.examId + "|" + sid));
     let idx = QUESTIONS.map((_,i)=>i);
     if (CONFIG.shuffleQuestions) idx = shuffle(idx, rnd);
@@ -324,8 +356,10 @@ $("btnStart").onclick = async () => {
       if (CONFIG.shuffleOptions) o = shuffle(o, rnd);
       return { qi, opts:o };
     });
+    S.answers = {}; S.cur = 0; S.violations = [];
     S.endAt = Math.min(Date.now() + CONFIG.durationMinutes*60000, CLOSE);
   }
+  $("btnStart").disabled = false;
   beginExam();
 };
 
@@ -487,7 +521,7 @@ function finish(reason){
   });
   const total = S.order.length;
   S.result = {
-    examId: CONFIG.examId, name: S.name, kelas: S.kelas, absen: S.absen,
+    examId: CONFIG.examId, name: S.name, kelas: S.kelas, absen: S.absen, retake: !!S.retake,
     correct, total, score: Math.round(correct/total*1000)/10,
     finishReason: reason, finishedAt: new Date().toISOString(),
     violations: S.violations.map(v => ({ at:new Date(v.t).toISOString(), reason:v.reason })),
@@ -503,6 +537,7 @@ function finish(reason){
 
 // Layar akhir: siswa hanya melihat konfirmasi, nilai hanya dilihat guru di Google Sheet
 function showEnd(reason){
+  if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});
   $("screenStart").classList.add("hide");
   $("screenExam").classList.add("hide");
   $("screenEnd").classList.remove("hide");
