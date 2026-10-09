@@ -157,8 +157,8 @@ const CONFIG = {
   durationMinutes: 90,             // lama maksimal pengerjaan; otomatis dipotong saat jendela ujian ditutup
   // Jendela pelaksanaan (WIB, UTC+7). Ujian hanya bisa dimulai di antara dua waktu ini,
   // dan waktu semua peserta berakhir paling lambat pada closeAt.
-  openAt:  "2026-10-13T07:30:00+07:00",
-  closeAt: "2026-10-13T09:00:00+07:00",
+  openAt:  "2026-10-09T07:30:00+07:00",
+  closeAt: "2026-10-09T09:00:00+07:00",
   maxViolations: 3,               // auto-kumpul setelah sekian pelanggaran
   shuffleQuestions: true,
   shuffleOptions: true,
@@ -498,7 +498,7 @@ function finish(reason){
   if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});
   showEnd(reason);
   // Saat waktu habis, ratusan siswa mengirim bersamaan: beri jeda acak agar server tidak kewalahan
-  if (CONFIG.submitEndpoint) sendResult(reason === "Waktu habis" ? Math.random()*150000 : 0);
+  if (CONFIG.submitEndpoint) sendResult(reason === "Waktu habis" ? Math.random()*90000 : 0);
 }
 
 // Layar akhir: siswa hanya melihat konfirmasi, nilai hanya dilihat guru di Google Sheet
@@ -534,7 +534,7 @@ function sendResult(delay){
       .catch(() => {
         if (attempt < 6){
           $("endNote").textContent = "Mengirim hasil ... (percobaan " + (attempt+1) + "). Jangan tutup halaman ini.";
-          setTimeout(go, Math.min(30000, 2000*attempt*attempt) + Math.random()*2000);
+          setTimeout(go, Math.min(30000, 2000*attempt*attempt) + Math.random()*5000);
         } else {
           S.sending = false;
           $("endNote").textContent = "Pengiriman belum terkonfirmasi. Pastikan internet aktif, lalu tekan Kirim ulang hasil. Jika tetap gagal, lapor kepada pengawas.";
