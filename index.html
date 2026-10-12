@@ -84,12 +84,11 @@
         <li>Berpindah tab atau jendela, menyalin teks, mengambil tangkapan layar, dan membuka alat pengembang dicatat sebagai pelanggaran.</li>
         <li>Ujian otomatis dikumpulkan setelah <b id="maxV"></b> pelanggaran atau saat waktu habis.</li>
         <li>Urutan soal dan pilihan jawaban berbeda untuk setiap peserta.</li>
-        <li>Jika tidak sengaja keluar dari halaman dan tidak dapat ujian kembali, maka perlu ada perubahan identitas. Contoh: yang awalnya diisi (7C) menjadi (Tujuh C) atau diisi (Nama Lengkap, no absen), (contoh: Nicholas Saputra, 20)</li>
       </ul>
-      <label for="inName">Nama Lengkap</label>
-      <input id="inName" type="text" autocomplete="off" placeholder="Contoh: Nicholas Saputra">
-      <label for="inAbsen">Nomor Absen</label>
-      <input id="inAbsen" type="text" inputmode="numeric" autocomplete="off" placeholder="Contoh: 05, 16, 36">
+      <label for="inName">Nama lengkap</label>
+      <input id="inName" type="text" autocomplete="off">
+      <label for="inAbsen">Nomor absen</label>
+      <input id="inAbsen" type="text" inputmode="numeric" autocomplete="off">
       <label for="inKelas">Kelas</label>
       <input id="inKelas" type="text" autocomplete="off" placeholder="Contoh: 7A">
       <p id="startErr" class="muted" style="color:var(--red);min-height:1.4em"></p>
@@ -158,14 +157,14 @@ const CONFIG = {
   durationMinutes: 90,             // lama maksimal pengerjaan; otomatis dipotong saat jendela ujian ditutup
   // Jendela pelaksanaan (WIB, UTC+7). Ujian hanya bisa dimulai di antara dua waktu ini,
   // dan waktu semua peserta berakhir paling lambat pada closeAt.
-  openAt:  "2026-10-13T07:30:00+07:00",
+  openAt:  "2026-10-12T07:30:00+07:00",
   closeAt: "2026-10-13T09:00:00+07:00",
-  maxViolations: 5,               // auto-kumpul setelah sekian pelanggaran
+  maxViolations: 3,               // auto-kumpul setelah sekian pelanggaran
   shuffleQuestions: true,
   shuffleOptions: true,
   showScoreToStudent: false,      // false = siswa tidak melihat nilai (disarankan)
   // Opsional: URL Google Apps Script / server Anda untuk menerima hasil (kosongkan jika tidak dipakai)
-  submitEndpoint: "https://script.google.com/macros/s/AKfycbzRqE5bj-pUVeZX_XsEpnA_ByD5SxfM9jTiJxizKWZfiOYmHkTXVIeaSBnh8Bm2SlVVMQ/exec",
+  submitEndpoint: "https://script.google.com/macros/s/AKfycbzrWJ8copiIUbcozaArPPPfsP-fCqsTOWBhjhJ87cSnNqsBXYcAhCD2TPtN7URjfmL7UQ/exec",
 };
 
 /* ======================================================================
@@ -234,6 +233,26 @@ const QUESTIONS = [
     options: ["\\(1\\tfrac{7}{40}\\)", "\\(1\\tfrac{3}{40}\\)", "\\(2\\tfrac{7}{40}\\)", "\\(2\\tfrac{3}{40}\\)"], answer: 1 },
   { q: "Lestari memiliki sebuah pita sepanjang 2,7 m. Lestari memberikan \\(\\frac{3}{4}\\) m kepada Putri, sebanyak 0,8 m kepada Amel, dan sebanyak 0,85 m kepada Shela. Sisa pita Lestari sekarang adalah ... cm.",
     options: ["70", "50", "30", "10"], answer: 2 },
+  { q: "Ibu membeli tepung terigu sebanyak 2,8 kg. Tepung terigu tersebut akan dapat menjadi beberapa kue. Ibu khawatir tepung tidak cukup sehingga membeli lagi sebanyak 1,75 kg. Ibu membuat kue nastar dan membutuhkan \\(\\frac{16}{10}\\) kg tepung terigu. Ibu juga membuat kue bolu dan membutuhkan 1,45 kg serta sisanya akan digunakan untuk membuat kue roll coklat. Berapa banyak tepung terigu yang digunakan untuk membuat kue roll coklat?",
+    options: ["1,5 kg", "2,5 kg", "1,25 kg", "2,25 kg"], answer: 0 },
+  { q: "Dalam sebuah kompetisi matematika, aturan penilaian yang digunakan adalah: setiap jawaban benar mendapat poin +4, jawaban salah mendapat poin −2, dan tidak dijawab mendapat poin 0. Dari 40 soal yang diberikan, Arvel berhasil menjawab 32 soal dengan benar, 5 soal salah, dan sisanya tidak dijawab. Berapakah skor total yang diperoleh Arvel?",
+    options: ["108", "118", "128", "138"], answer: 1 },
+  { q: "Nilai dari \\(\\dfrac{\\frac{3}{5} + \\frac{1}{3}}{\\frac{3}{5} - \\frac{1}{3}}\\) adalah ...",
+    options: ["3,5", "−3,5", "3,0", "−3,0"], answer: 0 },
+  { q: "Sebuah toko memiliki persediaan beras dalam 3 karung yang berbeda. Karung A berisi 12,5 kg beras, karung B berisi \\(12\\tfrac{4}{5}\\) kg beras, dan karung C berisi 12,75 kg beras. Urutan karung yang paling ringan hingga paling berat ialah ...",
+    options: ["A &lt; B &lt; C", "B &lt; C &lt; A", "C &lt; B &lt; A", "A &lt; C &lt; B"], answer: 3 },
+  { q: "Linda membeli sebuah sepeda motor dengan harga Rp20.000.000,00. Pembelian motor dikenakan Pajak Pertambahan Nilai (PPN) 11%. Selain itu, Linda juga harus membayar biaya administrasi untuk pembuatan plat nomor, STNK, dan BPKP dengan total sebesar 6% dari harga awal sepeda motor. Berapakah total uang yang harus dibayarkan oleh Linda secara keseluruhan?",
+    options: ["Rp21.200.000,00", "Rp22.200.000,00", "Rp23.400.000,00", "Rp24.400.000,00"], answer: 2 },
+  { q: "Sebanyak \\(\\frac{6}{7}\\) m kayu papan akan dipotong-potong menjadi masing-masing \\(\\frac{2}{7}\\) m. Kayu yang dihasilkan sebanyak ... bagian.",
+    options: ["4", "3", "2", "1"], answer: 1 },
+  { q: "Setiap bulan Bella mendapatkan gaji Rp3.000.000,00, 40% gajinya dibuat untuk membayar tagihan dan cicilan, 15% untuk mengirim uang bulanan ke orangtuanya, dan \\(\\frac{1}{5}\\) untuk bayar kos. Berapa sisa gaji Bella?",
+    options: ["Rp750.000,00", "Rp850.000,00", "Rp950.000,00", "Rp650.000,00"], answer: 0 },
+  { q: "Jika A adalah 20% dari 120 dan B adalah 15% dari 200, maka perbandingan yang tepat dari pilihan berikut ini adalah ...",
+    options: ["A &lt; B", "A &gt; B", "A = B", "A ≠ B"], answer: 0 },
+  { q: "Jessica melakukan penelitian dengan membandingkan dua massa bakteri. Bakteri X bermassa \\(\\frac{3}{8}\\) mg, sedangkan bakteri Y bermassa \\(\\frac{3}{5}\\) mg. Bakteri mana yang massanya lebih berat?",
+    options: ["X", "Y", "X ≠ Y", "X = Y"], answer: 1 },
+  { q: "Hasil dari (0,25 ÷ 0,75) × \\(\\frac{3}{4}\\) − 2 + 20% adalah ...",
+    options: ["−1,55", "−0,45", "−1,95", "−0,05"], answer: 0 },
 ];
 
 /* ======================================================================
