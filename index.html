@@ -84,11 +84,12 @@
         <li>Berpindah tab atau jendela, menyalin teks, mengambil tangkapan layar, dan membuka alat pengembang dicatat sebagai pelanggaran.</li>
         <li>Ujian otomatis dikumpulkan setelah <b id="maxV"></b> pelanggaran atau saat waktu habis.</li>
         <li>Urutan soal dan pilihan jawaban berbeda untuk setiap peserta.</li>
+        <li>Jika tidak sengaja mengalami kendala atau melakukan pelanggaran, Anda perlu mengulang proses dari awal dengan sedikit mengubah identitas. Sebagai contoh, Anda dapat memformat ulang nama lengkap beserta nomor absen menjadi "Nicholas Saputra, 20", atau mengubah penulisan kelas dari "7C" menjadi "Tujuh C".</li>
       </ul>
       <label for="inName">Nama lengkap</label>
-      <input id="inName" type="text" autocomplete="off">
+      <input id="inName" type="text" autocomplete="off" placeholder="Contoh: Nicholas Saputra">
       <label for="inAbsen">Nomor absen</label>
-      <input id="inAbsen" type="text" inputmode="numeric" autocomplete="off">
+      <input id="inAbsen" type="text" inputmode="numeric" autocomplete="off" placeholder="Contoh: 05, 16, 35">
       <label for="inKelas">Kelas</label>
       <input id="inKelas" type="text" autocomplete="off" placeholder="Contoh: 7A">
       <p id="startErr" class="muted" style="color:var(--red);min-height:1.4em"></p>
@@ -159,7 +160,7 @@ const CONFIG = {
   // dan waktu semua peserta berakhir paling lambat pada closeAt.
   openAt:  "2026-10-12T07:30:00+07:00",
   closeAt: "2026-10-13T09:00:00+07:00",
-  maxViolations: 3,               // auto-kumpul setelah sekian pelanggaran
+  maxViolations: 5,               // auto-kumpul setelah sekian pelanggaran
   shuffleQuestions: true,
   shuffleOptions: true,
   showScoreToStudent: false,      // false = siswa tidak melihat nilai (disarankan)
